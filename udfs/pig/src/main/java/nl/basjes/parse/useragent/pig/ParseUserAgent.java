@@ -28,7 +28,9 @@ import org.apache.pig.impl.logicalLayer.schema.Schema;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ParseUserAgent extends org.apache.pig.EvalFunc<Tuple>  {
 
@@ -51,9 +53,16 @@ public class ParseUserAgent extends org.apache.pig.EvalFunc<Tuple>  {
             }
 
             if (!requestedFields.isEmpty()) {
+                Set<String> nonFields = new HashSet<>();
                 for (String requestedField : requestedFields) {
-                    analyzerBuilder.withField(requestedField);
+                    if ("DropPII".equalsIgnoreCase(requestedField)) {
+                        analyzerBuilder.dropPIIFields();
+                        nonFields.add(requestedField);
+                    } else {
+                        analyzerBuilder.withField(requestedField);
+                    }
                 }
+                requestedFields.removeAll(nonFields);
             }
 
             analyzer = analyzerBuilder.build();

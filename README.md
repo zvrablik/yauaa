@@ -353,6 +353,33 @@ AgentSecurity
 | Unknown         | It was not specified (very common) |
 | Hacker          | A hacker, so it can really be anything. |
 
+
+Is the Useragent PII ?
+======================
+**NOTE: I am NOT a lawyer. I just try to understand as best as I can. What I write here is how I understand it. Your lawyer will most likely disagree. Use with caution.**
+
+Some people have told me that they consider the UserAgent string to be a PII field.
+Looking at the real values you get from the browser there is reason to believe that some are actually so unique that they effectively have become some kind of unique browser id.
+For people using the latest Chrome on the most common operating system (Windows 7/10) I believe this is not a problem because everyone has the exact same one.
+
+    Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3346.8 Safari/537.36
+
+For people with a lot of plugins or even a SIMBAR in their useragent it definitely it a problem.  
+
+    Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; SIMBAR={51037e31-26af-4b94-9d65-77ef810e55bb}; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; InfoPath.2)
+
+and between these two there are lots of greyscales.
+
+To allow people to have an easier way of knowing which fields can be used to effecitely un-PII the useragent I have created an extra special parameter you can set that will return only those field of which I believe they are not PII.
+Important here is this is what I believe, like I said: I am NOT a lawyer so I may very well be wrong about this.
+
+What I have done is that there is now a special call you can do to 'drop the PII fields'. 
+In the Java API this is the builder method .dropPIIFields()
+ - If you do not specify any fields and only do the dropPIIFields you will get all fields that have been white listed. 
+ - If you do specifiy field in combination with dropPIIFields the system will fail if you ask for a field not on the whitelist.
+
+
+
 Parsing Useragents
 ==================
 Parsing useragents is considered by many to be a ridiculously hard problem.

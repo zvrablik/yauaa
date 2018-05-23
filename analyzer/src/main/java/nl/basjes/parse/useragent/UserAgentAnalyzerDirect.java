@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Formatter;
@@ -108,6 +109,8 @@ public class UserAgentAnalyzerDirect implements Analyzer, Serializable {
     public static final int DEFAULT_USER_AGENT_MAX_LENGTH = 2048;
     private int userAgentMaxLength = DEFAULT_USER_AGENT_MAX_LENGTH;
     private boolean loadTests = false;
+
+    private boolean dropPIIFields = false;
 
     /**
      * Initialize the transient default values
@@ -181,6 +184,18 @@ public class UserAgentAnalyzerDirect implements Analyzer, Serializable {
     public UserAgentAnalyzerDirect keepTests() {
         loadTests = true;
         return this;
+    }
+
+    public boolean willDropPIIFields() {
+        return dropPIIFields;
+    }
+
+    public void dropPIIFields() {
+        dropPIIFields = true;
+    }
+
+    public void keepPIIFields() {
+        dropPIIFields = false;
     }
 
     protected void initialize() {
@@ -776,13 +791,19 @@ config:
             }
 
             userAgent.processSetAll();
-            return hardCodedPostProcessing(userAgent);
+            userAgent = hardCodedPostProcessing(userAgent);
         } catch (NullPointerException npe) {
             userAgent.reset();
             userAgent = setAsHacker(userAgent, 10000);
             userAgent.setForced("HackerAttackVector", "Yauaa NPE Exploit", 10000);
-            return hardCodedPostProcessing(userAgent);
+            userAgent = hardCodedPostProcessing(userAgent);
         }
+
+        if (dropPIIFields) {
+            userAgent.resetFieldsExcept(FIELDS_CONSIDERED_TO_BE_PII_SAFE_LIST);
+        }
+
+        return userAgent;
     }
 
     private static final List<String> HARD_CODED_GENERATED_FIELDS = new ArrayList<>();
@@ -1089,6 +1110,7 @@ config:
         private final UAA uaa;
         private boolean didBuildStep = false;
         private int preheatIterations = 0;
+        private boolean dropPIIFields = false;
 
         protected void failIfAlreadyBuilt() {
             if (didBuildStep) {
@@ -1110,6 +1132,18 @@ config:
         public B preheat() {
             failIfAlreadyBuilt();
             this.preheatIterations = -1;
+            return (B)this;
+        }
+
+        public B dropPIIFields() {
+            uaa.dropPIIFields();
+            dropPIIFields = true;
+            return (B)this;
+        }
+
+        public B keepPIIFields() {
+            uaa.keepPIIFields();
+            dropPIIFields = false;
             return (B)this;
         }
 
@@ -1186,6 +1220,19 @@ config:
 
         public UAA build() {
             failIfAlreadyBuilt();
+
+            if (dropPIIFields) {
+                if (uaa.wantedFieldNames == null) {
+                    withFields(FIELDS_CONSIDERED_TO_BE_PII_SAFE);
+                } else {
+                    for (String fieldName: uaa.wantedFieldNames) {
+                        if (!FIELDS_CONSIDERED_TO_BE_PII_SAFE_LIST.contains(fieldName)) {
+                            throw new InvalidParserConfigurationException("The requested field \"" + fieldName + "\" is not on the PII whitelist --> so it is a potential PII problem.");
+                        }
+                    }
+                }
+            }
+
             if (uaa.wantedFieldNames != null) {
                 addGeneratedFields("AgentNameVersion", AGENT_NAME, AGENT_VERSION);
                 addGeneratedFields("AgentNameVersionMajor", AGENT_NAME, AGENT_VERSION_MAJOR);
@@ -1217,4 +1264,72 @@ config:
         }
 
     }
+
+    private static final String[] FIELDS_CONSIDERED_TO_BE_PII_SAFE = {
+        // Basic idea:
+        // If a field is likely to identify a consumer device very uniquely it is removed.
+        // Things specific to robots and hackers and such are always retained.
+        // For most things we kick the exact build versions and minor versions and retain only the major version numbers
+
+        "DeviceClass",
+        "DeviceName",
+        "DeviceBrand",
+        "DeviceCpu",
+        "DeviceCpuBits",
+        // "DeviceFirmwareVersion",                 // Very specific
+        "DeviceVersion",
+        "OperatingSystemClass",
+        "OperatingSystemName",
+        "OperatingSystemVersion",
+        "OperatingSystemNameVersion",
+        // "OperatingSystemVersionBuild",           // Very specific
+        "LayoutEngineClass",
+        "LayoutEngineName",
+        // "LayoutEngineVersion",                   // A bit too specific
+        "LayoutEngineVersionMajor",
+        // "LayoutEngineNameVersion",               // A bit too specific
+        "LayoutEngineNameVersionMajor",
+        // "LayoutEngineBuild",                     // Too specific
+        "AgentClass",
+        "AgentName",
+        // "AgentVersion",                          // Too specific
+        "AgentVersionMajor",
+        // "AgentNameVersion",                      // Too specific
+        "AgentNameVersionMajor",
+        // "AgentBuild",                            // Too specific
+        "AgentLanguage",
+        "AgentLanguageCode",
+        "AgentInformationEmail",                    // NOT PII Because this is ONLY used by robots.
+        "AgentInformationUrl",                      // NOT PII Because this is ONLY used by robots.
+        "AgentSecurity",
+        // "AgentUuid",                             // Very PII as this is used by spammers to inject a very stable "browser id"
+        "WebviewAppName",
+        // "WebviewAppVersion",                     // Too specific
+        "WebviewAppVersionMajor",
+        "WebviewAppNameVersionMajor",
+        "FacebookCarrier",
+        "FacebookDeviceClass",
+        "FacebookDeviceName",
+        "FacebookDeviceVersion",
+        // "FacebookFBOP",                          // I do not fully understand this field --> unsafe
+        // "FacebookFBSS",                          // I do not fully understand this field --> unsafe
+        "FacebookOperatingSystemName",
+        "FacebookOperatingSystemVersion",
+        "Anonymized",
+        "HackerAttackVector",
+        "HackerToolkit",
+        // "KoboAffiliate",                         // Too specific
+        // "KoboPlatformId",                        // Too specific
+        // "IECompatibilityVersion",                // Too specific
+        "IECompatibilityVersionMajor",
+        // "IECompatibilityNameVersion",            // Too specific
+        "IECompatibilityNameVersionMajor",
+        "Carrier",
+        // "GSAInstallationID",                     // Way too specific
+
+        SYNTAX_ERROR,                              // System variable: true/false
+    };
+
+    private static final List<String> FIELDS_CONSIDERED_TO_BE_PII_SAFE_LIST = Arrays.asList(FIELDS_CONSIDERED_TO_BE_PII_SAFE);
+
 }

@@ -336,6 +336,14 @@ public class UserAgent extends UserAgentBaseListener implements Serializable, AN
         }
     }
 
+    public void resetFieldsExcept(List<String> fieldsConsideredToBePiiSafe) {
+        for (Map.Entry<String, AgentField> fieldEntry : allFields.entrySet()) {
+            if (!fieldsConsideredToBePiiSafe.contains(fieldEntry.getKey())) {
+                fieldEntry.getValue().reset();
+            }
+        }
+    }
+
     static boolean isSystemField(String fieldname) {
         return  SET_ALL_FIELDS.equals(fieldname) ||
                 SYNTAX_ERROR.equals(fieldname) ||
@@ -359,7 +367,7 @@ public class UserAgent extends UserAgentBaseListener implements Serializable, AN
     public void set(String attribute, String value, long confidence) {
         AgentField field = allFields.get(attribute);
         if (field == null) {
-            field = new AgentField(null); // The fields we do not know get a 'null' default
+            field = new AgentField(UNKNOWN_VALUE); // The fields we do not know get a 'null' default
         }
 
         boolean wasEmpty = confidence == -1;

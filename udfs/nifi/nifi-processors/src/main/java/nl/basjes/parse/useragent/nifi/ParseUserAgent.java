@@ -106,6 +106,15 @@ public class ParseUserAgent extends AbstractProcessor {
             supportedPropertyDescriptors.add(propertyDescriptor);
         }
 
+        PropertyDescriptor propertyDescriptor = new PropertyDescriptor.Builder()
+            .name("Fail if any of the requested fields are a PII risk")
+            .description("If enabled the processing will fail if you requested any fields that are NOT PII")
+            .required(true)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .build();
+
     }
 
     @Override
