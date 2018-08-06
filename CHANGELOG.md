@@ -11,6 +11,7 @@ v5.1
 - Massive change of the OS Version for all Windows variants. Much cleaner now.
 - Detect the new Gecko fork Goanna (used by Palemoon)
 - Get the DeviceBrand from the URL/Email if no other is available
+- Fix loading resources under certain classloader situations.
 
 v5.0
 ===

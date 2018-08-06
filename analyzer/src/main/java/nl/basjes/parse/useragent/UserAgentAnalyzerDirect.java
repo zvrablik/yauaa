@@ -231,14 +231,21 @@ public class UserAgentAnalyzerDirect implements Analyzer, Serializable {
         Yaml yaml = new Yaml();
 
         Map<String, Resource> resources = new TreeMap<>();
-        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
         try {
+            PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
             Resource[] resourceArray = resolver.getResources(resourceString);
+
+            if (resourceArray.length == 0) {
+                // This sometimes happens in certain classloader scenarios.
+                // So we try one more time with the classloader of this class.
+                resolver = new PathMatchingResourcePatternResolver(this.getClass().getClassLoader());
+                resourceArray = resolver.getResources(resourceString);
+            }
+
             for (Resource resource : resourceArray) {
                 resources.put(resource.getFilename(), resource);
             }
         } catch (IOException e) {
-            e.printStackTrace();
             return;
         }
         doingOnlyASingleTest = false;
